@@ -6,6 +6,7 @@ Note: SMAC-documentation uses linenumbers to generate docs from this file.
 """
 
 import logging
+import multiprocessing as mp
 import numpy as np
 from sklearn import svm, datasets
 from sklearn.model_selection import cross_val_score
@@ -88,32 +89,48 @@ cs.add_condition(InCondition(child=gamma_value, parent=gamma, values=["value"]))
 cs.add_condition(InCondition(child=gamma, parent=kernel, values=["rbf", "poly", "sigmoid"]))
 
 
-# Scenario object
-scenario = Scenario({"run_obj": "quality",   # we optimize quality (alternatively runtime)
-                     "runcount-limit": 50,   # max. number of function evaluations; for this example set to a low number
-                     "cs": cs,               # configuration space
-                     "deterministic": "true"
-                     })
-
-# Example call of the function
-# It returns: Status, Cost, Runtime, Additional Infos
-def_value = svm_from_cfg(cs.get_default_configuration())
-print("Default Value: %.2f" % (def_value))
-
-# Optimize, using a SMAC-object
-print("Optimizing! Depending on your machine, this might take a few minutes.")
-smac = SMAC4HPO(scenario=scenario, rng=np.random.RandomState(42),
-        tae_runner=svm_from_cfg)
-
-incumbent = smac.optimize()
-
-inc_value = svm_from_cfg(incumbent)
-
-print("Optimized Value: %.2f" % (inc_value))
 
 
-# We can also validate our results (though this makes a lot more sense with instances)
-smac.validate(config_mode='inc',      # We can choose which configurations to evaluate
-              #instance_mode='train+test',  # Defines what instances to validate
-              repetitions=100,        # Ignored, unless you set "deterministic" to "false" in line 95
-              n_jobs=1)               # How many cores to use in parallel for optimization
+
+
+from smac.utils.multiproc import MultiProc
+def func(x):
+    # Scenario object
+    scenario = Scenario({"run_obj": "quality",  # we optimize quality (alternatively runtime)
+                         "runcount-limit": 50,
+                         # max. number of function evaluations; for this example set to a low number
+                         "cs": cs,  # configuration space
+                         "deterministic": "true",
+                         "shared_model": True,
+                         "input_psmac_dirs": "fuck",
+                         'output_dir': 'fuck'
+                         })
+    smac = SMAC4HPO(scenario=scenario, rng=np.random.RandomState(42),
+                    tae_runner=svm_from_cfg)
+    return smac.optimize()
+processes=[]
+for i in range(12):
+    p=mp.Process(target=func,args=(i,))
+    processes.append(p)
+    p.start()
+for p in processes:
+    p.join()
+# args=[[None]]*12
+# incumbents=MultiProc(12,func,args).main_process()
+# incumbent = smac.optimize()
+# for incumbent in incumbents:
+#     inc_value = svm_from_cfg(incumbent)
+#
+#     print("Optimized Value: %.2f" % (inc_value))
+
+# incumbent=smac.optimize()
+# inc_value = svm_from_cfg(incumbent)
+# print("Optimized Value: %.2f" % (inc_value))
+
+
+
+# # We can also validate our results (though this makes a lot more sense with instances)
+# smac.validate(config_mode='inc',      # We can choose which configurations to evaluate
+#               #instance_mode='train+test',  # Defines what instances to validate
+#               repetitions=100,        # Ignored, unless you set "deterministic" to "false" in line 95
+#               n_jobs=12)               # How many cores to use in parallel for optimization

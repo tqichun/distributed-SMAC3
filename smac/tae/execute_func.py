@@ -33,10 +33,6 @@ class AbstractTAFunc(ExecuteTARun):
                  cost_for_crash:float=float(MAXINT),
                  abort_on_first_run_crash: bool=False,
                  use_pynisher:bool=True):
-
-        super().__init__(ta=ta, stats=stats, runhistory=runhistory,
-                         run_obj=run_obj, par_factor=par_factor,
-                         cost_for_crash=cost_for_crash)
         """
         Abstract class for having a function as target algorithm
 
@@ -65,6 +61,9 @@ class AbstractTAFunc(ExecuteTARun):
               * all runs will be returned as SUCCESS if returned value is not None
             
         """
+        super().__init__(ta=ta, stats=stats, runhistory=runhistory,
+                         run_obj=run_obj, par_factor=par_factor,
+                         cost_for_crash=cost_for_crash)
 
         signature = inspect.signature(ta).parameters
         self._accepts_seed = len(signature) > 1

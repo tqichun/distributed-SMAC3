@@ -8,7 +8,7 @@ from smac.scenario.scenario import Scenario
 
 def create_output_directory(
         scenario: Scenario,
-        run_id: int,
+        run_id: str,
         logger: Logger = None,
 ):
     """Create output directory for this run.
@@ -25,7 +25,7 @@ def create_output_directory(
     if scenario.output_dir:
         output_dir = os.path.join(
             scenario.output_dir,
-            "run_%d" % (run_id),
+            "run_%s" % (run_id),
         )
     else:
         return ""

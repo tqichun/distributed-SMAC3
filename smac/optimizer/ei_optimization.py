@@ -723,6 +723,9 @@ class ChallengerList(object):
     def __iter__(self):
         return self
 
+    def __len__(self):
+        return len(self.challengers)
+
     def __next__(self):
         if self._index == len(self.challengers):
             raise StopIteration

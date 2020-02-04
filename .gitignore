@@ -33,3 +33,6 @@ doc/main_options.rst
 doc/scenario_options.rst
 doc/smac_options.rst
 doc/apidoc
+将删除 .gitignore
+将删除 branin/__pycache__/
+将删除 branin/smac3-output_2020-02-01_09:38:42_156749/
