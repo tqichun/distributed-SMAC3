@@ -1,12 +1,12 @@
-import os
-import sys
-import logging
-import json
-import typing
 import collections
+import json
+import logging
+import typing
 
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 from ConfigSpace.hyperparameters import FloatHyperparameter, IntegerHyperparameter
+
+from smac.utils.io.file_system import LocalFS
 
 __author__ = "Marius Lindauer"
 __copyright__ = "Copyright 2016, ML4AAD"
@@ -18,7 +18,6 @@ TrajEntry = collections.namedtuple(
 
 
 class TrajLogger(object):
-
     """Writes trajectory logs files and creates output directory if not exists already
 
     Attributes
@@ -30,9 +29,9 @@ class TrajLogger(object):
     old_traj_fn
     trajectory
     """
+    static_file_system = LocalFS()
 
-
-    def __init__(self, output_dir, stats):
+    def __init__(self, output_dir, stats, file_system=LocalFS()):
         """Constructor
 
         Parameters
@@ -42,6 +41,8 @@ class TrajLogger(object):
         stats: Stats()
             Stats object
         """
+        self.file_system = file_system
+        TrajLogger.static_file_system = file_system
         self.stats = stats
         self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
 
@@ -52,24 +53,24 @@ class TrajLogger(object):
                              "specified -- trajectory will not be logged.")
 
         else:
-            if not os.path.isdir(output_dir):
+            if not self.file_system.isdir(output_dir):
                 try:
-                    os.makedirs(output_dir)
+                    self.file_system.mkdir(output_dir)
                 except OSError:
                     self.logger.debug("Could not make output directory.", exc_info=1)
                     raise OSError("Could not make output directory: "
                                   "{}.".format(output_dir))
 
-            self.old_traj_fn = os.path.join(output_dir, "traj_old.csv")
-            if not os.path.isfile(self.old_traj_fn):
-                with open(self.old_traj_fn, "w") as fp:
-                    fp.write(
-                        '"CPU Time Used","Estimated Training Performance",'
-                        '"Wallclock Time","Incumbent ID",'
-                        '"Automatic Configurator (CPU) Time",'
-                        '"Configuration..."\n')
+            self.old_traj_fn = self.file_system.join(output_dir, "traj_old.csv")
+            if not self.file_system.isfile(self.old_traj_fn):
+                txt = (
+                    '"CPU Time Used","Estimated Training Performance",'
+                    '"Wallclock Time","Incumbent ID",'
+                    '"Automatic Configurator (CPU) Time",'
+                    '"Configuration..."\n')
+                self.file_system.write_txt(self.old_traj_fn, txt)
 
-            self.aclib_traj_fn = os.path.join(output_dir, "traj_aclib2.json")
+            self.aclib_traj_fn = self.file_system.join(output_dir, "traj_aclib2.json")
 
         self.trajectory = []
 
@@ -91,7 +92,7 @@ class TrajLogger(object):
         ta_time_used = self.stats.ta_time_used
         wallclock_time = self.stats.get_used_wallclock_time()
         self.trajectory.append(TrajEntry(train_perf, incumbent_id, incumbent,
-                                ta_runs, ta_time_used, wallclock_time))
+                                         ta_runs, ta_time_used, wallclock_time))
         if self.output_dir is not None:
             self._add_in_old_format(train_perf, incumbent_id, incumbent,
                                     ta_time_used, wallclock_time)
@@ -122,15 +123,15 @@ class TrajLogger(object):
             if not incumbent.get(p) is None:
                 conf.append("%s='%s'" % (p, repr(incumbent[p])))
 
-        with open(self.old_traj_fn, "a") as fp:
-            fp.write("%f, %f, %f, %d, %f, %s\n" % (
-                ta_time_used,
-                train_perf,
-                wallclock_time,
-                incumbent_id,
-                wallclock_time - ta_time_used,
-                ", ".join(conf)
-            ))
+        txt = ("%f, %f, %f, %d, %f, %s\n" % (
+            ta_time_used,
+            train_perf,
+            wallclock_time,
+            incumbent_id,
+            wallclock_time - ta_time_used,
+            ", ".join(conf)
+        ))
+        self.file_system.write_txt(self.old_traj_fn, txt, append=True)
 
     def _add_in_aclib_format(self, train_perf: float, incumbent_id: int,
                              incumbent: Configuration, ta_time_used: float,
@@ -167,10 +168,8 @@ class TrajLogger(object):
             traj_entry["origin"] = incumbent.origin
         except AttributeError:
             traj_entry["origin"] = "UNKNOWN"
-
-        with open(self.aclib_traj_fn, "a") as fp:
-            json.dump(traj_entry, fp)
-            fp.write("\n")
+        txt = json.dumps(traj_entry) + "\n"
+        self.file_system.write_txt(self.aclib_traj_fn, txt, True)
 
     @staticmethod
     def read_traj_aclib_format(fn: str, cs: ConfigurationSpace):
@@ -198,12 +197,12 @@ class TrajLogger(object):
         """
 
         trajectory = []
-        with open(fn) as fp:
-            for line in fp:
-                entry = json.loads(line)
-                entry["incumbent"] = TrajLogger._convert_dict_to_config(
-                    entry["incumbent"], cs=cs)
-                trajectory.append(entry)
+        fp = TrajLogger.static_file_system.read_txt(fn).splitlines()
+        for line in fp:
+            entry = json.loads(line)
+            entry["incumbent"] = TrajLogger._convert_dict_to_config(
+                entry["incumbent"], cs=cs)
+            trajectory.append(entry)
 
         return trajectory
 
@@ -222,7 +221,7 @@ class TrajLogger(object):
         """
         config_dict = {}
         for param in config_list:
-            k,v = param.split("=")
+            k, v = param.split("=")
             v = v.strip("'")
             hp = cs.get_hyperparameter(k)
             if isinstance(hp, FloatHyperparameter):
@@ -230,7 +229,7 @@ class TrajLogger(object):
             elif isinstance(hp, IntegerHyperparameter):
                 v = int(v)
             config_dict[k] = v
-            
+
         config = Configuration(configuration_space=cs, values=config_dict)
         config.origin = "External Trajectory"
 

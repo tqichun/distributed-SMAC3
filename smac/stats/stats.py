@@ -1,9 +1,9 @@
 import time
-import os
 import logging
 import json
 
 from smac.scenario.scenario import Scenario
+from smac.utils.io.file_system import LocalFS
 
 __author__ = "Marius Lindauer"
 __copyright__ = "Copyright 2016, ML4AAD"
@@ -27,7 +27,7 @@ class Stats(object):
     inc_changed
     """
 
-    def __init__(self, scenario: Scenario):
+    def __init__(self, scenario: Scenario,file_system=LocalFS()):
         """Constructor
 
         Parameters
@@ -36,6 +36,7 @@ class Stats(object):
 
         output_dir : str
         """
+        self.file_system = file_system
         self.__scenario = scenario
 
         self.ta_runs = 0
@@ -67,15 +68,15 @@ class Stats(object):
         data = {}
 
         for v in vars(self):
-            if not v in ['_Stats__scenario', '_logger', '_start_time']:
+            if not v in ['_Stats__scenario', '_logger', '_start_time','file_system']:
                 data[v] = getattr(self, v)
 
-        path = os.path.join(
+        path = self.file_system.join(
             self.__scenario.output_dir_for_this_run, "stats.json"
         )
         self._logger.debug("Saving stats to %s", path)
-        with open(path, 'w') as fh:
-            json.dump(data, fh)
+        txt=json.dumps(data)
+        self.file_system.write_txt(path,txt)
 
     def load(self, fn=None):
         """
@@ -88,11 +89,11 @@ class Stats(object):
             in the current scenario is used.
         """
         if not fn:
-            fn = os.path.join(
+            fn = self.file_system.join(
                 self.__scenario.output_dir_for_this_run, "stats.json"
             )
-        with open(fn, 'r') as fh:
-            data = json.load(fh)
+        txt=self.file_system.read_txt(fn)
+        data = json.loads(txt)
 
         # Set attributes
         for key in data:
@@ -128,7 +129,7 @@ class Stats(object):
         if self.__scenario:
             return self.__scenario.wallclock_limit - (time.time() - self._start_time)
         else:
-            raise "Scenario is missing"
+            raise Exception("Scenario is missing")
 
     def get_remaining_ta_runs(self):
         """Subtract the target algorithm runs in the scenario with the used ta
@@ -136,7 +137,7 @@ class Stats(object):
         if self.__scenario:
             return self.__scenario.ta_run_limit - self.ta_runs
         else:
-            raise "Scenario is missing"
+            raise Exception("Scenario is missing")
 
     def get_remaining_ta_budget(self):
         """Subtracts the ta running budget with the used time"""

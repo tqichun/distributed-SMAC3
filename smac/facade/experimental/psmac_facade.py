@@ -87,7 +87,7 @@ class PSMAC(object):
     """
 
     def __init__(self,
-                 scenario: typing.Type[Scenario],
+                 scenario: Scenario,
                  rng: typing.Optional[typing.Union[np.random.RandomState, int]] = None,
                  run_id: int = 1,
                  tae: typing.Type[ExecuteTARun] = ExecuteTARunOld,
@@ -133,7 +133,7 @@ class PSMAC(object):
         self.run_id, self.rng = get_rng(rng, run_id, logger=self.logger)
         self.kwargs = kwargs
         self.output_dir = None
-        self.rh = RunHistory(average_cost)
+        self.rh = RunHistory(average_cost,file_system=scenario.file_system)
         self._tae = tae
         self._tae_kwargs = tae_kwargs
         if n_optimizers <= 1:

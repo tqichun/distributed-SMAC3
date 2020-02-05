@@ -49,7 +49,7 @@ class Hydra(object):
     """
 
     def __init__(self,
-                 scenario: typing.Type[Scenario],
+                 scenario: Scenario,
                  n_iterations: int,
                  val_set: str = 'train',
                  incs_per_round: int = 1,
@@ -97,7 +97,7 @@ class Hydra(object):
         self.top_dir = None
         self.solver = None
         self.portfolio = None
-        self.rh = RunHistory(average_cost)
+        self.rh = RunHistory(average_cost,file_system=scenario.file_system)
         self._tae = tae
         self._tae_kwargs = tae_kwargs
         if incs_per_round <= 0:

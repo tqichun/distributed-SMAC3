@@ -111,14 +111,14 @@ class EPILS(object):
         if stats:
             self.stats = stats
         else:
-            self.stats = Stats(scenario)
+            self.stats = Stats(scenario,file_system=scenario.file_system)
 
         self.output_dir = create_output_directory(scenario, run_id)
         scenario.write()
 
         # initialize empty runhistory
         if runhistory is None:
-            runhistory = RunHistory(aggregate_func=aggregate_func)
+            runhistory = RunHistory(aggregate_func=aggregate_func,file_system=scenario.file_system)
         # inject aggr_func if necessary
         if runhistory.aggregate_func is None:
             runhistory.aggregate_func = aggregate_func
@@ -132,7 +132,7 @@ class EPILS(object):
 
         # initial Trajectory Logger
         traj_logger = TrajLogger(
-            output_dir=self.output_dir, stats=self.stats)
+            output_dir=self.output_dir, stats=self.stats,file_system=scenario.file_system)
 
         # initial EPM
         types, bounds = get_types(scenario.cs, scenario.feature_array)

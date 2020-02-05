@@ -218,7 +218,7 @@ class SMAC4AC(object):
         if stats:
             self.stats = stats
         else:
-            self.stats = Stats(scenario)
+            self.stats = Stats(scenario,file_system=scenario.file_system)
 
         if self.scenario.run_obj == "runtime" and not self.scenario.transform_y == "LOG":
             self.logger.warning("Runtime as objective automatically activates log(y) transformation")
@@ -229,7 +229,7 @@ class SMAC4AC(object):
         if runhistory_kwargs is not None:
             runhistory_def_kwargs.update(runhistory_kwargs)
         if runhistory is None:
-            runhistory = RunHistory(**runhistory_def_kwargs)
+            runhistory = RunHistory(**runhistory_def_kwargs,file_system=scenario.file_system)
         elif inspect.isclass(runhistory):
             runhistory = runhistory(**runhistory_def_kwargs)
         else:
@@ -256,7 +256,7 @@ class SMAC4AC(object):
         scenario.cs.seed(rng.randint(MAXINT))
 
         # initial Trajectory Logger
-        traj_logger = TrajLogger(output_dir=self.output_dir, stats=self.stats)
+        traj_logger = TrajLogger(output_dir=self.output_dir, stats=self.stats,file_system=scenario.file_system)
 
         # initial EPM
         types, bounds = get_types(scenario.cs, scenario.feature_array)

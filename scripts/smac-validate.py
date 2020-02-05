@@ -77,7 +77,7 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.DEBUG)
 
     scenario = Scenario(args_.scenario, cmd_options={'output_dir': ""})
-    traj_logger = TrajLogger(None, Stats(scenario))
+    traj_logger = TrajLogger(None, Stats(scenario,file_system=scenario.file_system),file_system=scenario.file_system)
     trajectory = traj_logger.read_traj_aclib_format(args_.trajectory, scenario.cs)
     if args_.tae == "old":
         tae = ExecuteTARunOld(ta=scenario.ta,
@@ -94,9 +94,9 @@ if __name__ == "__main__":
 
     # Load runhistory
     if args_.runhistory:
-        runhistory = RunHistory(average_cost)
+        runhistory = RunHistory(average_cost,file_system=scenario.file_system)
         for rh_path in args_.runhistory:
-            runhistory.update_from_json(rh_path, scenario.cs)
+            runhistory.update_from_json(rh_path, scenario.cs,file_system=scenario.file_system)
     else:
         runhistory = None
 

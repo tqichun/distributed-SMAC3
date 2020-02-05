@@ -1,15 +1,17 @@
-import os
 import shutil
 import typing
 
 from smac.configspace import pcs_new, json, ConfigurationSpace
+from smac.utils.io.file_system import LocalFS
 from smac.utils.logging import PickableLoggerAdapter
-from smac.utils.io.file_system import HDFS
+
+
 class OutputWriter(object):
     """Writing scenario to file."""
 
-    def __init__(self):
-        self.file_system=HDFS('')
+    def __init__(self, file_system=LocalFS()):
+        self.file_system = file_system
+
         self.logger = PickableLoggerAdapter(name=self.__module__ + "." + self.__class__.__name__)
 
     def write_scenario_file(self, scenario):
@@ -33,11 +35,11 @@ class OutputWriter(object):
                                  "specified -- scenario will not be logged.")
             return False
         # Create output-dir if necessary
-        if not os.path.isdir(scenario.output_dir_for_this_run):
+        if not self.file_system.isdir(scenario.output_dir_for_this_run):
             scenario.logger.debug("Output directory does not exist! Will be "
                                   "created.")
             try:
-                os.makedirs(scenario.output_dir_for_this_run)
+                self.file_system.mkdir(scenario.output_dir_for_this_run)
             except OSError:
                 scenario.logger.debug("Could not make output directory.", exc_info=1)
                 raise OSError("Could not make output directory: "
@@ -45,16 +47,17 @@ class OutputWriter(object):
 
         # options_dest2name maps scenario._arguments from dest -> name
         options_dest2name = {(scenario._arguments[v]['dest'] if
-            scenario._arguments[v]['dest'] else v) : v.lstrip('-').replace('-', '_') for v in scenario._arguments}
+                              scenario._arguments[v]['dest'] else v): v.lstrip('-').replace('-', '_') for v in
+                             scenario._arguments}
 
         # Write all options into "output_dir/scenario.txt"
-        path = os.path.join(scenario.output_dir_for_this_run, "scenario.txt")
+        path = self.file_system.join(scenario.output_dir_for_this_run, "scenario.txt")
         scenario.logger.debug("Writing scenario-file to {}.".format(path))
         for key in options_dest2name:
             key = key.lstrip('-').replace('-', '_')
             new_value = self._parse_argument(scenario, key, getattr(scenario, key))
             if new_value is not None:
-                fh.write("{} = {}\n".format(options_dest2name[key], new_value))
+                self.file_system.write_txt(path, "{} = {}\n".format(options_dest2name[key], new_value))
 
     def _parse_argument(self, scenario, key: str, value):
         """Some values of the scenario-file need to be changed upon writing,
@@ -83,14 +86,14 @@ class OutputWriter(object):
         """
         if key in ['pcs_fn', 'train_inst_fn', 'test_inst_fn', 'feature_fn']:
             # Copy if file exists, else write to new file
-            if value is not None and os.path.isfile(value):
+            if value is not None and self.file_system.isfile(value):
                 try:
                     new_path = shutil.copy(value, scenario.output_dir_for_this_run)
                 except shutil.SameFileError:
                     new_path = value  # File is already in output_dir
                 # For .pcs-file, also save with the same basename as json and use json-path!
                 if key == 'pcs_fn' and scenario.cs is not None and value.endswith('.pcs'):
-                    file_name = os.path.splitext(os.path.basename(value))[0]
+                    file_name = self.file_system.splitext(self.file_system.basename(value))[0]
                     new_path = self.file_system.join(scenario.output_dir_for_this_run, file_name + '.json')
                     self.save_configspace(scenario.cs, new_path, 'json')
                     scenario.logger.debug("Setting the pcs_fn-attr of written scenario from %s to %s", value, new_path)
@@ -100,7 +103,7 @@ class OutputWriter(object):
                     self.save_configspace(scenario.cs, pcs_path, 'pcs_new')
                 except TypeError:
                     self.logger.error("Could not write pcs file to disk."
-                    " ConfigSpace not compatible with (new) pcs format.")
+                                      " ConfigSpace not compatible with (new) pcs format.")
                 new_path = self.file_system.join(scenario.output_dir_for_this_run, 'configspace.json')
                 self.save_configspace(scenario.cs, new_path, 'json')
             elif key == 'train_inst_fn' and scenario.train_insts != [None]:
@@ -136,8 +139,7 @@ class OutputWriter(object):
             fn: string
                  Output path
         """
-        with open(fn, 'w') as fh:
-            fh.write("\n".join(insts))
+        self.file_system.write_txt(fn, "\n".join(insts))
 
     def write_inst_features_file(self, n_features: int, feat_dict, fn: str):
         """Writes features to file.
@@ -152,11 +154,11 @@ class OutputWriter(object):
                  File name of instance feature file
         """
         header = "Instance, " + ", ".join(
-            ["feature"+str(i) for i in range(n_features)]) + "\n"
+            ["feature" + str(i) for i in range(n_features)]) + "\n"
         body = [", ".join([inst] + [str(f) for f in feat_dict[inst]]) + "\n"
                 for inst in feat_dict]
-        with open(fn, 'w') as fh:
-            fh.write(header + "".join(body))
+        txt = header + "".join(body)
+        self.file_system.write_txt(fn, txt)
 
     def save_configspace(self, cs: ConfigurationSpace, fn: str, output_format: str):
         """Writing ConfigSpace to file.
@@ -177,8 +179,8 @@ class OutputWriter(object):
         }
         writer = writers.get(output_format)
         if writer:
-            with open(fn, 'w') as fh:
-                fh.write(writer(cs))
+            txt = writer(cs)
+            self.file_system.write_txt(fn, txt)
         else:
             raise ValueError(
                 "Configuration space output format %s not supported. "

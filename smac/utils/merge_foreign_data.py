@@ -41,7 +41,7 @@ def merge_foreign_data_from_file(scenario: Scenario,
     scens = [Scenario(scenario=scen_fn, cmd_options={"output_dir": ""}) for scen_fn in in_scenario_fn_list]
     rhs = []
     for rh_fn in in_runhistory_fn_list:
-        rh = RunHistory(aggregate_func)
+        rh = RunHistory(aggregate_func,file_system=scenario.file_system)
         rh.load_json(rh_fn, cs)
         rhs.append(rh)
 

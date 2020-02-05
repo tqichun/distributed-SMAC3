@@ -50,7 +50,7 @@ def setup_SMAC_from_file(smac_out_dn: str,
     rh.load_json(os.path.join(smac_out_dn, "runhistory.json"), cs=scenario.cs)
     
     for dn in add_dn:
-        rh.update_from_json(fn=os.path.join(dn, "runhistory.json"), cs=scenario.cs)
+        rh.update_from_json(fn=os.path.join(dn, "runhistory.json"), cs=scenario.cs,file_system=scenario.file_system)
 
     logger.info("Fit EPM on %d observations." % (len(rh.data)))
     X, Y = smac.solver.rh2EPM.transform(rh)

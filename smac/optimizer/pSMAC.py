@@ -1,8 +1,5 @@
-import glob
 import logging
-import os
 import re
-import tempfile
 import typing
 from collections import defaultdict
 
@@ -33,7 +30,7 @@ def read(run_history: RunHistory,
     output_dirs : typing.Union[str,typing.List[str]]
         List of SMAC output directories
         or Linux path expression (str) which will be casted into a list with
-        glob.glob(). This function will search the output directories
+        file_system.glob(). This function will search the output directories
         for files matching the runhistory regular expression.
     configuration_space : ConfigSpace.ConfigurationSpace
         A ConfigurationSpace object to check if loaded configurations are valid.
@@ -41,24 +38,26 @@ def read(run_history: RunHistory,
     """
     numruns_in_runhistory = len(run_history.data)
     initial_numruns_in_runhistory = numruns_in_runhistory
-
+    file_system = run_history.file_system
     if isinstance(output_dirs, str):
-        parsed_output_dirs = glob.glob(output_dirs)
-        if glob.glob(os.path.join(output_dirs, "run_*")):
-            parsed_output_dirs += glob.glob(os.path.join(output_dirs, "run_*"))
+        parsed_output_dirs = file_system.glob(output_dirs)
+        if file_system.glob(run_history.file_system.join(output_dirs, "run_*")):
+            parsed_output_dirs += file_system.glob(file_system.join(output_dirs, "run_*"))
     else:
         parsed_output_dirs = output_dirs
 
     for output_directory in parsed_output_dirs:
-        for file_in_output_directory in os.listdir(output_directory):
+        for file_in_output_directory in file_system.listdir(output_directory):
             match = re.match(RUNHISTORY_RE, file_in_output_directory)
             valid_match = re.match(VALIDATEDRUNHISTORY_RE, file_in_output_directory)
             if match or valid_match:
                 last_id = PSMAC_VALUE.dir2id[output_directory]
-                runhistory_file = os.path.join(output_directory,
-                                               file_in_output_directory)
+                runhistory_file = file_system.join(output_directory,
+                                                   file_in_output_directory)
                 updated_id_set = run_history.update_from_json(runhistory_file,
-                                                               configuration_space, id_set=PSMAC_VALUE.dir2id[output_directory])
+                                                              configuration_space,
+                                                              id_set=PSMAC_VALUE.dir2id[output_directory],
+                                                              file_system=run_history.file_system)
                 PSMAC_VALUE.dir2id[output_directory] = updated_id_set
                 # print(PSMAC_VALUE.dir2id)
                 new_numruns_in_runhistory = len(run_history.data)
@@ -84,14 +83,9 @@ def write(run_history: RunHistory, output_directory: str, logger: logging.Logger
 
     logger : logging.Logger
     """
-
-    output_filename = os.path.join(output_directory, RUNHISTORY_FILEPATTERN)
+    file_system = run_history.file_system
+    output_filename = file_system.join(output_directory, RUNHISTORY_FILEPATTERN)
 
     logging.debug("Saving runhistory to %s" % output_filename)
 
-    with tempfile.NamedTemporaryFile('wb', dir=output_directory,
-                                     delete=False) as fh:
-        temporary_filename = fh.name
-
-    run_history.save_json(temporary_filename, save_external=False)
-    os.rename(temporary_filename, output_filename)
+    run_history.save_json(output_filename, save_external=False)

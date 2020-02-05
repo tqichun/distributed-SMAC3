@@ -47,11 +47,11 @@ def main():
 
     # We load the runhistory, ...
     rh_path = os.path.join(old_output_dir, "runhistory.json")
-    runhistory = RunHistory(aggregate_func=None)
+    runhistory = RunHistory(aggregate_func=None,file_system=new_scenario.file_system)
     runhistory.load_json(rh_path, new_scenario.cs)
     # ... stats, ...
     stats_path = os.path.join(old_output_dir, "stats.json")
-    stats = Stats(new_scenario)
+    stats = Stats(new_scenario,file_system=new_scenario.file_system)
     stats.load(stats_path)
     # ... and trajectory.
     traj_path = os.path.join(old_output_dir,  "traj_aclib2.json")

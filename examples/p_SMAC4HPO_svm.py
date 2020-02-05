@@ -6,25 +6,23 @@ Note: SMAC-documentation uses linenumbers to generate docs from this file.
 """
 
 import logging
-import multiprocessing as mp
+
 import numpy as np
+from ConfigSpace.conditions import InCondition
+from ConfigSpace.hyperparameters import CategoricalHyperparameter, \
+    UniformFloatHyperparameter, UniformIntegerHyperparameter
 from sklearn import svm, datasets
 from sklearn.model_selection import cross_val_score
 
 # Import ConfigSpace and different types of parameters
 from smac.configspace import ConfigurationSpace
-from ConfigSpace.hyperparameters import CategoricalHyperparameter, \
-    UniformFloatHyperparameter, UniformIntegerHyperparameter
-from ConfigSpace.conditions import InCondition
-
-# Import SMAC-utilities
-from smac.tae.execute_func import ExecuteTAFuncDict
-from smac.scenario.scenario import Scenario
 from smac.facade.smac_hpo_facade import SMAC4HPO
-
+# Import SMAC-utilities
+from smac.scenario.scenario import Scenario
 
 # We load the iris-dataset (a widely used benchmark)
 iris = datasets.load_iris()
+
 
 def svm_from_cfg(cfg):
     """ Creates a SVM based on a configuration and evaluates it on the
@@ -42,7 +40,7 @@ def svm_from_cfg(cfg):
     """
     # For deactivated parameters, the configuration stores None-values.
     # This is not accepted by the SVM, so we remove them.
-    cfg = {k : cfg[k] for k in cfg if cfg[k]}
+    cfg = {k: cfg[k] for k in cfg if cfg[k]}
     # We translate boolean values:
     cfg["shrinking"] = True if cfg["shrinking"] == "true" else False
     # And for gamma, we set it to a fixed value or to "auto" (if used)
@@ -53,9 +51,10 @@ def svm_from_cfg(cfg):
     clf = svm.SVC(**cfg, random_state=42)
 
     scores = cross_val_score(clf, iris.data, iris.target, cv=5)
-    return 1-np.mean(scores)  # Minimize!
+    return 1 - np.mean(scores)  # Minimize!
 
-#logger = logging.getLogger("SVMExample")
+
+# logger = logging.getLogger("SVMExample")
 logging.basicConfig(level=logging.INFO)  # logging.DEBUG for debug output
 
 # Build Configuration Space which defines all parameters and their ranges
@@ -71,7 +70,7 @@ shrinking = CategoricalHyperparameter("shrinking", ["true", "false"], default_va
 cs.add_hyperparameters([C, shrinking])
 
 # Others are kernel-specific, so we can add conditions to limit the searchspace
-degree = UniformIntegerHyperparameter("degree", 1, 5, default_value=3)     # Only used by kernel poly
+degree = UniformIntegerHyperparameter("degree", 1, 5, default_value=3)  # Only used by kernel poly
 coef0 = UniformFloatHyperparameter("coef0", 0.0, 10.0, default_value=0.0)  # poly, sigmoid
 cs.add_hyperparameters([degree, coef0])
 use_degree = InCondition(child=degree, parent=kernel, values=["poly"])
@@ -89,11 +88,8 @@ cs.add_condition(InCondition(child=gamma_value, parent=gamma, values=["value"]))
 cs.add_condition(InCondition(child=gamma, parent=kernel, values=["rbf", "poly", "sigmoid"]))
 
 
-
-
-
-
 def func(x):
+    dir="/user/tqc/test_dir"
     # Scenario object
     scenario = Scenario({"run_obj": "quality",  # we optimize quality (alternatively runtime)
                          "runcount-limit": 50,
@@ -101,13 +97,16 @@ def func(x):
                          "cs": cs,  # configuration space
                          "deterministic": "true",
                          "shared_model": True,
-                         "input_psmac_dirs": "test_dir",
-                         'output_dir': 'test_dir',
-                         },runtime='spark',
-                        spark_config={'hdfs_url':'http://0.0.0.0:50070'})
+                         "input_psmac_dirs": dir,
+                         'output_dir': dir,
+                         }, runtime='spark',
+                        spark_config={'hdfs_url': 'http://0.0.0.0:50070'})
     smac = SMAC4HPO(scenario=scenario, rng=np.random.RandomState(42),
                     tae_runner=svm_from_cfg)
     return smac.optimize()
+
+func(0)
+
 # processes=[]
 # for i in range(12):
 #     p=mp.Process(target=func,args=(i,))
@@ -115,7 +114,6 @@ def func(x):
 #     p.start()
 # for p in processes:
 #     p.join()
-func(0)
 # args=[[None]]*12
 # incumbents=MultiProc(12,func,args).main_process()
 # incumbent = smac.optimize()
@@ -127,7 +125,6 @@ func(0)
 # incumbent=smac.optimize()
 # inc_value = svm_from_cfg(incumbent)
 # print("Optimized Value: %.2f" % (inc_value))
-
 
 
 # # We can also validate our results (though this makes a lot more sense with instances)

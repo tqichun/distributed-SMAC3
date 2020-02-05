@@ -8,6 +8,7 @@ import numpy as np
 
 from smac.configspace import Configuration, ConfigurationSpace
 from smac.tae.execute_ta_run import StatusType
+from smac.utils.io.file_system import LocalFS
 from smac.utils.logging import PickableLoggerAdapter
 
 __author__ = "Marius Lindauer"
@@ -91,7 +92,8 @@ class RunHistory(object):
     def __init__(
         self,
         aggregate_func: typing.Callable,
-        overwrite_existing_runs: bool=False
+        overwrite_existing_runs: bool=False,
+        file_system=LocalFS()
     ) -> None:
         """Constructor
 
@@ -104,6 +106,7 @@ class RunHistory(object):
             algorithm-instance-seed were measured
             multiple times
         """
+        self.file_system = file_system
         self.logger = PickableLoggerAdapter(
             self.__module__ + "." + self.__class__.__name__
         )
@@ -367,11 +370,10 @@ class RunHistory(object):
                           for id_, conf in self.ids_config.items()
                           if (id_ in config_ids_to_serialize and
                               conf.origin is not None)}
-
-        with open(fn, "w") as fp:
-            json.dump({"data": data,
+        txt=json.dumps({"data": data,
                        "config_origins": config_origins,
-                       "configs": configs}, fp, cls=EnumEncoder, indent=2)
+                       "configs": configs}, cls=EnumEncoder, indent=2)
+        self.file_system.write_txt(fn,txt)
 
     def load_json(self, fn: str, cs: ConfigurationSpace, id_set=set()):
         """Load and runhistory in json representation from disk.
@@ -386,8 +388,8 @@ class RunHistory(object):
             instance of configuration space
         """
         try:
-            with open(fn) as fp:
-                all_data = json.load(fp, object_hook=StatusType.enum_hook)
+            txt=self.file_system.read_txt(fn)
+            all_data = json.loads(txt, object_hook=StatusType.enum_hook)
         except Exception as e:
             self.logger.warning(
                 'Encountered exception %s while reading runhistory from %s. '
@@ -425,7 +427,7 @@ class RunHistory(object):
         return updated_id_set
 
     def update_from_json(self, fn: str, cs: ConfigurationSpace,
-                         origin: DataOrigin=DataOrigin.EXTERNAL_SAME_INSTANCES,id_set:set=set()):
+                         origin: DataOrigin=DataOrigin.EXTERNAL_SAME_INSTANCES,id_set:set=set(),file_system=LocalFS()):
         """Update the current runhistory by adding new runs from a json file.
 
         Parameters
@@ -437,7 +439,7 @@ class RunHistory(object):
         origin : DataOrigin
             What to store as data origin.
         """
-        new_runhistory = RunHistory(self.aggregate_func)
+        new_runhistory = RunHistory(self.aggregate_func,file_system=file_system)
         updated_id_set=new_runhistory.load_json(fn, cs,id_set)
         self.update(runhistory=new_runhistory, origin=origin)
         return updated_id_set

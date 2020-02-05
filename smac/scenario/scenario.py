@@ -1,13 +1,13 @@
-import logging
 import copy
+import logging
 import typing
 
 import numpy as np
 
+from smac.utils.io.cmd_reader import CMDReader
+from smac.utils.io.file_system import HDFS, LocalFS
 from smac.utils.io.input_reader import InputReader
 from smac.utils.io.output_writer import OutputWriter
-from smac.utils.io.cmd_reader import CMDReader
-
 
 __author__ = "Marius Lindauer, Matthias Feurer, Aaron Kimmig"
 __copyright__ = "Copyright 2016, ML4AAD"
@@ -18,7 +18,6 @@ __version__ = "0.0.2"
 
 
 class Scenario(object):
-
     """
     Scenario contains the configuration of the optimization process and
     constructs a scenario object from a file or dictionary.
@@ -27,7 +26,7 @@ class Scenario(object):
 
     """
 
-    def __init__(self, scenario=None, cmd_options: dict=None,runtime='local',spark_config=None):
+    def __init__(self, scenario=None, cmd_options: dict = None, runtime='local', spark_config=None):
         """ Creates a scenario-object. The output_dir will be
         "output_dir/run_id/" and if that exists already, the old folder and its
         content will be moved (without any checks on whether it's still used by
@@ -43,14 +42,18 @@ class Scenario(object):
         cmd_options : dict
             Options from parsed command line arguments
         """
-        self.spark_config = spark_config
+        self.spark_config: dict = spark_config
         self.runtime = runtime
+        if self.runtime == 'spark':
+            self.file_system = HDFS(self.spark_config.get('hdfs_url', 'http://0.0.0.0:50070'))
+        else:
+            self.file_system = LocalFS()
         self.logger = logging.getLogger(
             self.__module__ + '.' + self.__class__.__name__)
         self.PCA_DIM = 7
 
         self.in_reader = InputReader()
-        self.out_writer = OutputWriter()
+        self.out_writer = OutputWriter(self.file_system)
 
         self.output_dir_for_this_run = None
 
@@ -83,7 +86,6 @@ class Scenario(object):
             raise TypeError(
                 "Wrong type of scenario (str or dict are supported)")
 
-
         for arg_name, arg_value in scenario.items():
             setattr(self, arg_name, arg_value)
 
@@ -93,7 +95,7 @@ class Scenario(object):
         if cmd_options:
             for arg_name, arg_value in cmd_options.items():
                 if isinstance(arg_value, (int, str, float)):
-                    self.logger.debug("%s = %s" %(arg_name, arg_value))
+                    self.logger.debug("%s = %s" % (arg_name, arg_value))
 
     def _transform_arguments(self):
         """TODO"""
@@ -102,7 +104,7 @@ class Scenario(object):
         self.feature_array = None
 
         self.instance_specific = {}
-        
+
         if self.run_obj == "runtime":
             self.logy = True
 
