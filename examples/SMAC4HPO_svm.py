@@ -102,8 +102,8 @@ def func(x):
                          "cs": cs,  # configuration space
                          "deterministic": "true",
                          "shared_model": True,
-                         "input_psmac_dirs": "fuck",
-                         'output_dir': 'fuck'
+                         "input_psmac_dirs": "test_dir",
+                         'output_dir': 'test_dir'
                          })
     smac = SMAC4HPO(scenario=scenario, rng=np.random.RandomState(42),
                     tae_runner=svm_from_cfg)

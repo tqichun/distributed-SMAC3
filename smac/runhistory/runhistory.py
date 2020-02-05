@@ -1,4 +1,5 @@
 import collections
+from copy import deepcopy
 from enum import Enum
 import json
 import typing
@@ -164,7 +165,7 @@ class RunHistory(object):
         """
 
         config_id = self.config_ids.get(config)
-        if config_id is None:
+        if config_id is None:  # it's a new config
             self._n_id += 1
             self.config_ids[config] = self._n_id
             config_id = self.config_ids.get(config)
@@ -372,7 +373,7 @@ class RunHistory(object):
                        "config_origins": config_origins,
                        "configs": configs}, fp, cls=EnumEncoder, indent=2)
 
-    def load_json(self, fn: str, cs: ConfigurationSpace):
+    def load_json(self, fn: str, cs: ConfigurationSpace, id_set=set()):
         """Load and runhistory in json representation from disk.
 
         Overwrites current runhistory!
@@ -397,29 +398,34 @@ class RunHistory(object):
             return
 
         config_origins = all_data.get("config_origins", {})
-
-        self.ids_config = {
-            int(id_): Configuration(
-                cs, values=values, origin=config_origins.get(id_, None)
-            ) for id_, values in all_data["configs"].items()
-        }
+        self.ids_config={}
+        updated_id_set=deepcopy(id_set)
+        for i,(id_, values) in enumerate(all_data["configs"].items()):
+            id_=int(id_)
+            if id_ not in id_set:
+                self.ids_config[id_]=Configuration(
+                    cs, values=values, origin=config_origins.get(str(id_), None)
+                )
+                updated_id_set.add(id_)
 
         self.config_ids = {config: id_ for id_, config in self.ids_config.items()}
 
         self._n_id = len(self.config_ids)
-
         # important to use add method to use all data structure correctly
         for k, v in all_data["data"]:
-            self.add(config=self.ids_config[int(k[0])],
-                     cost=float(v[0]),
-                     time=float(v[1]),
-                     status=StatusType(v[2]),
-                     instance_id=k[1],
-                     seed=int(k[2]),
-                     additional_info=v[3])
+            id_=int(k[0])
+            if id_ in self.ids_config:
+                self.add(config=self.ids_config[id_],
+                         cost=float(v[0]),
+                         time=float(v[1]),
+                         status=StatusType(v[2]),
+                         instance_id=k[1],
+                         seed=int(k[2]),
+                         additional_info=v[3])
+        return updated_id_set
 
     def update_from_json(self, fn: str, cs: ConfigurationSpace,
-                         origin: DataOrigin=DataOrigin.EXTERNAL_SAME_INSTANCES):
+                         origin: DataOrigin=DataOrigin.EXTERNAL_SAME_INSTANCES,id_set:set=set()):
         """Update the current runhistory by adding new runs from a json file.
 
         Parameters
@@ -432,8 +438,9 @@ class RunHistory(object):
             What to store as data origin.
         """
         new_runhistory = RunHistory(self.aggregate_func)
-        new_runhistory.load_json(fn, cs)
+        updated_id_set=new_runhistory.load_json(fn, cs,id_set)
         self.update(runhistory=new_runhistory, origin=origin)
+        return updated_id_set
 
     def update(self, runhistory: 'RunHistory',
                origin: DataOrigin=DataOrigin.EXTERNAL_SAME_INSTANCES):

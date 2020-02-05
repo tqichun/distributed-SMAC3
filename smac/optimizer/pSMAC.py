@@ -1,16 +1,22 @@
+import glob
+import logging
+import os
 import re
 import tempfile
-import os
 import typing
-import logging
-import glob
+from collections import defaultdict
 
-from smac.runhistory.runhistory import RunHistory
 from smac.configspace import ConfigurationSpace
+from smac.runhistory.runhistory import RunHistory
 
 RUNHISTORY_FILEPATTERN = 'runhistory.json'
 RUNHISTORY_RE = r'runhistory\.json$'
 VALIDATEDRUNHISTORY_RE = r'validated_runhistory\.json$'
+
+
+class PSMAC_VALUE:
+    '''global value, get last id of one dir, reduce traversal time.'''
+    dir2id = defaultdict(set)
 
 
 def read(run_history: RunHistory,
@@ -48,11 +54,13 @@ def read(run_history: RunHistory,
             match = re.match(RUNHISTORY_RE, file_in_output_directory)
             valid_match = re.match(VALIDATEDRUNHISTORY_RE, file_in_output_directory)
             if match or valid_match:
+                last_id = PSMAC_VALUE.dir2id[output_directory]
                 runhistory_file = os.path.join(output_directory,
                                                file_in_output_directory)
-                run_history.update_from_json(runhistory_file,
-                                             configuration_space)
-
+                updated_id_set = run_history.update_from_json(runhistory_file,
+                                                               configuration_space, id_set=PSMAC_VALUE.dir2id[output_directory])
+                PSMAC_VALUE.dir2id[output_directory] = updated_id_set
+                # print(PSMAC_VALUE.dir2id)
                 new_numruns_in_runhistory = len(run_history.data)
                 difference = new_numruns_in_runhistory - numruns_in_runhistory
                 logger.debug('Shared model mode: Loaded %d new runs from %s' % (difference, runhistory_file))
