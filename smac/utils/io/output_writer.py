@@ -4,11 +4,12 @@ import typing
 
 from smac.configspace import pcs_new, json, ConfigurationSpace
 from smac.utils.logging import PickableLoggerAdapter
-
+from smac.utils.io.file_system import HDFS
 class OutputWriter(object):
     """Writing scenario to file."""
 
     def __init__(self):
+        self.file_system=HDFS('')
         self.logger = PickableLoggerAdapter(name=self.__module__ + "." + self.__class__.__name__)
 
     def write_scenario_file(self, scenario):
@@ -49,12 +50,11 @@ class OutputWriter(object):
         # Write all options into "output_dir/scenario.txt"
         path = os.path.join(scenario.output_dir_for_this_run, "scenario.txt")
         scenario.logger.debug("Writing scenario-file to {}.".format(path))
-        with open(path, 'w') as fh:
-            for key in options_dest2name:
-                key = key.lstrip('-').replace('-', '_')
-                new_value = self._parse_argument(scenario, key, getattr(scenario, key))
-                if new_value is not None:
-                    fh.write("{} = {}\n".format(options_dest2name[key], new_value))
+        for key in options_dest2name:
+            key = key.lstrip('-').replace('-', '_')
+            new_value = self._parse_argument(scenario, key, getattr(scenario, key))
+            if new_value is not None:
+                fh.write("{} = {}\n".format(options_dest2name[key], new_value))
 
     def _parse_argument(self, scenario, key: str, value):
         """Some values of the scenario-file need to be changed upon writing,
@@ -91,26 +91,26 @@ class OutputWriter(object):
                 # For .pcs-file, also save with the same basename as json and use json-path!
                 if key == 'pcs_fn' and scenario.cs is not None and value.endswith('.pcs'):
                     file_name = os.path.splitext(os.path.basename(value))[0]
-                    new_path = os.path.join(scenario.output_dir_for_this_run, file_name + '.json')
+                    new_path = self.file_system.join(scenario.output_dir_for_this_run, file_name + '.json')
                     self.save_configspace(scenario.cs, new_path, 'json')
                     scenario.logger.debug("Setting the pcs_fn-attr of written scenario from %s to %s", value, new_path)
             elif key == 'pcs_fn' and scenario.cs is not None:
                 try:
-                    pcs_path = os.path.join(scenario.output_dir_for_this_run, 'configspace.pcs')
+                    pcs_path = self.file_system.join(scenario.output_dir_for_this_run, 'configspace.pcs')
                     self.save_configspace(scenario.cs, pcs_path, 'pcs_new')
                 except TypeError:
                     self.logger.error("Could not write pcs file to disk."
                     " ConfigSpace not compatible with (new) pcs format.")
-                new_path = os.path.join(scenario.output_dir_for_this_run, 'configspace.json')
+                new_path = self.file_system.join(scenario.output_dir_for_this_run, 'configspace.json')
                 self.save_configspace(scenario.cs, new_path, 'json')
             elif key == 'train_inst_fn' and scenario.train_insts != [None]:
-                new_path = os.path.join(scenario.output_dir_for_this_run, 'train_insts.txt')
+                new_path = self.file_system.join(scenario.output_dir_for_this_run, 'train_insts.txt')
                 self.write_inst_file(scenario.train_insts, new_path)
             elif key == 'test_inst_fn' and scenario.test_insts != [None]:
-                new_path = os.path.join(scenario.output_dir_for_this_run, 'test_insts.txt')
+                new_path = self.file_system.join(scenario.output_dir_for_this_run, 'test_insts.txt')
                 self.write_inst_file(scenario.test_insts, new_path)
             elif key == 'feature_fn' and scenario.feature_dict != {}:
-                new_path = os.path.join(scenario.output_dir_for_this_run, 'features.txt')
+                new_path = self.file_system.join(scenario.output_dir_for_this_run, 'features.txt')
                 self.write_inst_features_file(scenario.n_features,
                                               scenario.feature_dict, new_path)
             else:

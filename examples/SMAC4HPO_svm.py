@@ -93,7 +93,6 @@ cs.add_condition(InCondition(child=gamma, parent=kernel, values=["rbf", "poly", 
 
 
 
-from smac.utils.multiproc import MultiProc
 def func(x):
     # Scenario object
     scenario = Scenario({"run_obj": "quality",  # we optimize quality (alternatively runtime)
@@ -103,18 +102,20 @@ def func(x):
                          "deterministic": "true",
                          "shared_model": True,
                          "input_psmac_dirs": "test_dir",
-                         'output_dir': 'test_dir'
-                         })
+                         'output_dir': 'test_dir',
+                         },runtime='spark',
+                        spark_config={'hdfs_url':'http://0.0.0.0:50070'})
     smac = SMAC4HPO(scenario=scenario, rng=np.random.RandomState(42),
                     tae_runner=svm_from_cfg)
     return smac.optimize()
-processes=[]
-for i in range(12):
-    p=mp.Process(target=func,args=(i,))
-    processes.append(p)
-    p.start()
-for p in processes:
-    p.join()
+# processes=[]
+# for i in range(12):
+#     p=mp.Process(target=func,args=(i,))
+#     processes.append(p)
+#     p.start()
+# for p in processes:
+#     p.join()
+func(0)
 # args=[[None]]*12
 # incumbents=MultiProc(12,func,args).main_process()
 # incumbent = smac.optimize()

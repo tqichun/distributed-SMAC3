@@ -27,7 +27,7 @@ class Scenario(object):
 
     """
 
-    def __init__(self, scenario=None, cmd_options: dict=None):
+    def __init__(self, scenario=None, cmd_options: dict=None,runtime='local',spark_config=None):
         """ Creates a scenario-object. The output_dir will be
         "output_dir/run_id/" and if that exists already, the old folder and its
         content will be moved (without any checks on whether it's still used by
@@ -43,6 +43,8 @@ class Scenario(object):
         cmd_options : dict
             Options from parsed command line arguments
         """
+        self.spark_config = spark_config
+        self.runtime = runtime
         self.logger = logging.getLogger(
             self.__module__ + '.' + self.__class__.__name__)
         self.PCA_DIM = 7
